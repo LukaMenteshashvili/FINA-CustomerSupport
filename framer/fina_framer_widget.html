@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FINA Chat Widget</title>
+  <style>
+    :root {
+      --bg: #0f0f10;
+      --panel: #1c1c1f;
+      --text: #f2f2f3;
+      --muted: #a4a6ad;
+      --primary: linear-gradient(135deg, #ff6b2f, #ff4f4a);
+      --button: #2a2a30;
+      --accent: #ff6b2f;
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+    }
+    .chat-shell {
+      width: min(520px, 100%);
+      background: var(--panel);
+      border-radius: 16px;
+      border: 1px solid #26262b;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid #26262b;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--primary);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.2px;
+    }
+    .header-copy h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .header-copy p {
+      margin: 2px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .chat-body {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+    .bubble {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .bubble .avatar {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: var(--primary);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+    }
+    .bubble.user {
+      justify-content: flex-end;
+    }
+    .bubble.user .avatar { display: none; }
+    .bubble.user .message {
+      background: #2c2c32;
+      color: #fff;
+      border-radius: 12px 12px 4px 12px;
+      padding: 10px 12px;
+    }
+    .bubble .message {
+      background: #25252a;
+      border-radius: 12px 12px 12px 4px;
+      padding: 10px 12px;
+      width: 100%;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      padding: 0 14px 12px;
+    }
+    .action-btn {
+      background: var(--button);
+      color: #fff;
+      border: 1px solid #2f3036;
+      border-radius: 12px;
+      padding: 10px 12px;
+      text-align: left;
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    }
+    .action-btn:hover {
+      transform: translateY(-1px);
+      border-color: #3a3b44;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.25);
+    }
+    .composer {
+      border-top: 1px solid #26262b;
+      padding: 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: #1a1a1d;
+    }
+    .composer input {
+      flex: 1;
+      background: #101012;
+      color: #fff;
+      border: 1px solid #2a2a30;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 15px;
+    }
+    .composer input:focus { outline: 2px solid #ff6b2f55; }
+    .composer button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 12px 24px rgba(255,105,47,0.3);
+    }
+    .sources {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="chat-shell" id="fina-chat">
+    <div class="chat-header">
+      <div class="logo">F</div>
+      <div class="header-copy">
+        <h1>FINA Connect</h1>
+        <p>Agentic RAG chatbot for Framer embeds</p>
+      </div>
+    </div>
+    <div class="chat-body" id="chat-body"></div>
+    <div class="actions" id="quick-actions"></div>
+    <div class="composer">
+      <input id="chat-input" placeholder="Ask about FINA LLC..." />
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+  <script>
+    // Minimal, dependency-free widget that can be pasted into a Framer Custom Code block.
+    // Set data-api-url on the root element to point to your deployed FastAPI backend.
+    (function() {
+      const root = document.getElementById('fina-chat');
+      const body = document.getElementById('chat-body');
+      const input = document.getElementById('chat-input');
+      const quickActionsEl = document.getElementById('quick-actions');
+      const sendBtn = document.getElementById('send-btn');
+      const apiUrl = root.dataset.apiUrl || 'https://your-hostname.example.com/chat';
+      const quickActions = [
+        'Tell me about FINA LLC',
+        'Show me your products',
+        'Meet the leadership team',
+        'Request a demo',
+        'Tell me about FINA LLC — services',
+        'Tell me about FINA LLC — offerings'
+      ];
+
+      function addMessage(text, opts={}) {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble' + (opts.role === 'user' ? ' user' : '');
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = 'F';
+        const msg = document.createElement('div');
+        msg.className = 'message';
+        msg.innerHTML = text;
+        if (opts.sources) {
+          const src = document.createElement('div');
+          src.className = 'sources';
+          src.textContent = 'Sources: ' + opts.sources.join(', ');
+          msg.appendChild(src);
+        }
+        if (opts.muted) msg.classList.add('muted');
+        if (opts.role !== 'user') bubble.appendChild(avatar);
+        bubble.appendChild(msg);
+        body.appendChild(bubble);
+        body.scrollTop = body.scrollHeight;
+      }
+
+      function setLoadingState(isLoading) {
+        sendBtn.disabled = isLoading;
+        input.disabled = isLoading;
+        sendBtn.textContent = isLoading ? '...' : 'Send';
+      }
+
+      async function ask(question) {
+        if (!question.trim()) return;
+        addMessage(question, { role: 'user' });
+        setLoadingState(true);
+        try {
+          const res = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question })
+          });
+          if (!res.ok) throw new Error('Request failed');
+          const data = await res.json();
+          addMessage(data.answer, { sources: data.sources || [] });
+        } catch (err) {
+          addMessage('Sorry, I could not reach the chatbot service right now.', { muted: true });
+          console.error(err);
+        } finally {
+          setLoadingState(false);
+        }
+      }
+
+      quickActionsEl.innerHTML = '';
+      quickActions.forEach((q) => {
+        const btn = document.createElement('button');
+        btn.className = 'action-btn';
+        btn.textContent = q;
+        btn.onclick = () => ask(q);
+        quickActionsEl.appendChild(btn);
+      });
+
+      sendBtn.addEventListener('click', () => { ask(input.value); input.value = ''; });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          ask(input.value);
+          input.value = '';
+        }
+      });
+
+      addMessage("Hello and welcome! I'm here to help you learn about FINA LLC, our regulatory technology solutions, and how we support digital transformation for regulatory bodies and enterprises.\n\nHow can I assist you today?");
+    })();
+  </script>
+</body>
+</html>
